@@ -11,8 +11,6 @@ https://github.com/user-attachments/assets/d9c3895d-5101-4d1b-9582-d9eef6a1a561
 
 # Структура 
 
-# Auth + ML Service — API документация и инструкция (Markdown)
-
 ## Обзор
 
 - Бэкенд: FastAPI
