@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Auth + ML Test Client</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    body { margin: 0; padding: 24px; background: #0f172a; color: #e2e8f0; }
+    h1 { margin-top: 0; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .card { background: #111827; border: 1px solid #1f2937; border-radius: 12px; padding: 16px 20px; margin-bottom: 16px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+    label { display: block; margin: 8px 0 4px; color: #cbd5e1; }
+    input, select, button, textarea {
+      border-radius: 8px; border: 1px solid #374151; background: #0b1220; color: #e5e7eb;
+      padding: 10px 12px; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.3); }
+    button { background: #2563eb; border: 1px solid #1d4ed8; cursor: pointer; }
+    button.secondary { background: #334155; border-color: #334155; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    code { background: #0b1220; padding: 2px 6px; border-radius: 6px; border: 1px solid #1f2937; }
+    .success { color: #22c55e; }
+    .error { color: #f87171; }
+    .muted { color: #94a3b8; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #1f2937; padding: 8px; text-align: left; }
+    th { background: #0b1220; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Auth + ML Test Client</h1>
+
+    <div class="card">
+      <div class="row">
+        <div style="flex:1 1 420px">
+          <label>API Base URL</label>
+          <input type="text" id="apiBase" value="http://localhost:8000" />
+          <p class="muted">Ваш FastAPI бэкенд (например, http://localhost:8000)</p>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button id="pingBtn" class="secondary">Проверить соединение</button>
+        </div>
+      </div>
+      <div id="status" class="muted"></div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Регистрация</h3>
+        <label>Email</label>
+        <input type="email" id="regEmail" placeholder="user@example.com" />
+        <label>Пароль</label>
+        <input type="password" id="regPassword" placeholder="••••••••" />
+        <div style="margin-top:12px">
+          <button id="registerBtn">Зарегистрироваться</button>
+        </div>
+        <div id="registerOut" class="muted" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Логин (HTTP Basic → JWT)</h3>
+        <label>Email</label>
+        <input type="email" id="loginEmail" placeholder="user@example.com" />
+        <label>Пароль</label>
+        <input type="password" id="loginPassword" placeholder="••••••••" />
+        <div style="margin-top:12px" class="row">
+          <button id="loginBtn">Войти</button>
+          <button id="logoutBtn" class="secondary">Выйти</button>
+        </div>
+        <div style="margin-top:10px">
+          Токен: <span id="tokenShort" class="mono"></span>
+        </div>
+        <textarea id="tokenFull" class="mono" style="width:100%;height:90px;margin-top:8px" readonly></textarea>
+      </div>
+
+      <div class="card">
+        <h3>Профиль</h3>
+        <div class="row">
+          <button id="meBtn">Запросить /me</button>
+        </div>
+        <pre id="meOut" class="mono" style="white-space:pre-wrap"></pre>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Пополнение баланса</h3>
+        <p class="muted">Если поле пустое — используется дефолтная сумма с сервера.</p>
+        <div class="row">
+          <div>
+            <label>Сумма (кредиты)</label>
+            <input type="number" id="topupAmount" placeholder="например, 100" min="1" step="1" />
+          </div>
+          <div style="align-self:end">
+            <button id="topupBtn">Пополнить баланс</button>
+          </div>
+        </div>
+        <div id="topupOut" class="muted" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Тариф</h3>
+        <p class="muted">Выберите тариф и нажмите “Обновить план”. Доступны: basic, pro, premium.</p>
+        <div class="row">
+          <div>
+            <label>Текущий план</label>
+            <select id="planSelect">
+              <option value="basic">basic</option>
+              <option value="pro">pro</option>
+              <option value="premium">premium</option>
+            </select>
+          </div>
+          <div style="align-self:end">
+            <button id="planBtn">Обновить план</button>
+          </div>
+        </div>
+        <div id="planOut" class="muted" style="margin-top:10px"></div>
+      </div>
+
+      <div class="card">
+        <h3>Предсказание</h3>
+        <p class="muted">features строго в порядке: [Sex, Age]. Sex: female=0, male=1.</p>
+        <div class="row">
+          <div>
+            <label>Sex</label>
+            <select id="predSex">
+              <option value="female">Female (0)</option>
+              <option value="male">Male (1)</option>
+            </select>
+          </div>
+          <div>
+            <label>Age</label>
+            <input type="number" id="predAge" placeholder="30" min="0" step="1" />
+          </div>
+          <div style="align-self:end">
+            <button id="predictBtn">Предсказать</button>
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <div class="muted">Отправленные features: <code id="sentFeatures" class="mono"></code></div>
+        </div>
+        <pre id="predOut" class="mono" style="white-space:pre-wrap;margin-top:10px"></pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>История транзакций</h3>
+      <div class="row">
+        <div>
+          <label>Limit</label>
+          <input type="number" id="txLimit" value="50" min="1" max="500" step="1" />
+        </div>
+        <div>
+          <label>Offset</label>
+          <input type="number" id="txOffset" value="0" min="0" step="1" />
+        </div>
+        <div style="align-self:end">
+          <button id="txBtn">Обновить историю</button>
+        </div>
+      </div>
+      <div style="overflow:auto; margin-top:10px">
+        <table>
+          <thead>
+            <tr>
+              <th>Дата/время</th>
+              <th>Тип</th>
+              <th>Сумма</th>
+              <th>Баланс после</th>
+              <th>Metadata</th>
+            </tr>
+          </thead>
+          <tbody id="txTableBody">
+            <tr><td colspan="5" class="muted">Нет данных</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Логи</h3>
+      <pre id="log" class="mono" style="white-space:pre-wrap"></pre>
+    </div>
+  </div>
+
+<script>
+  // ===== Utils =====
+  function toBase64Utf8(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = "";
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  const $ = (id) => document.getElementById(id);
+  const log = (msg, type = "") => {
+    const el = $("log");
+    const p = type === "error" ? "[ERROR] " : type === "ok" ? "[OK] " : "";
+    el.textContent += p + msg + "\n";
+    el.scrollTop = el.scrollHeight;
+  };
+  function apiBase() { return $("apiBase").value.replace(/\/+$/, ""); }
+  function setStatus(text, ok = false) { const el = $("status"); el.textContent = text; el.className = ok ? "success" : "error"; }
+  function setToken(token) { token ? localStorage.setItem("jwt", token) : localStorage.removeItem("jwt"); renderToken(); }
+  function getToken() { return localStorage.getItem("jwt") || ""; }
+  function renderToken() {
+    const t = getToken();
+    $("tokenFull").value = t;
+    $("tokenShort").textContent = t ? (t.slice(0, 24) + "..." + t.slice(-12)) : "(нет токена)";
+  }
+
+  // ===== Actions =====
+  async function registerUser() {
+    const email = $("regEmail").value.trim();
+    const password = $("regPassword").value;
+    $("registerOut").textContent = "";
+    try {
+      const res = await fetch(apiBase() + "/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      $("registerOut").innerHTML = `<span class="success">OK</span> Пользователь создан: id=${data.id}, email=${data.email}`;
+      log("Register OK: " + JSON.stringify(data), "ok");
+    } catch (e) {
+      $("registerOut").innerHTML = `<span class="error">${e.message}</span>`;
+      log("Register failed: " + e.message, "error");
+    }
+  }
+
+  async function loginUser() {
+    const email = $("loginEmail").value.trim();
+    const password = $("loginPassword").value;
+    try {
+      const basic = "Basic " + toBase64Utf8(`${email}:${password}`);
+      const res = await fetch(apiBase() + "/login", {
+        method: "POST",
+        headers: { "Authorization": basic }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      setToken(data.access_token);
+      log("Login OK, token received", "ok");
+    } catch (e) {
+      log("Login failed: " + e.message, "error");
+      alert("Ошибка входа: " + e.message);
+    }
+  }
+
+  async function fetchMe() {
+    const token = getToken();
+    if (!token) { alert("Сначала выполните вход"); return; }
+    try {
+      const res = await fetch(apiBase() + "/me", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      $("meOut").textContent = JSON.stringify(data, null, 2);
+      if (data.plan && $("planSelect")) $("planSelect").value = String(data.plan).toLowerCase();
+      log("GET /me OK", "ok");
+    } catch (e) {
+      $("meOut").textContent = "";
+      log("GET /me failed: " + e.message, "error");
+      alert("Ошибка получения профиля: " + e.message);
+    }
+  }
+
+  async function ping() {
+    try {
+      const res = await fetch(apiBase() + "/me", { method: "OPTIONS" });
+      if (res.ok || res.status === 405) {
+        setStatus("API доступен по " + apiBase(), true);
+        log("Ping OK", "ok");
+      } else {
+        setStatus("API ответ: " + res.status, false);
+        log("Ping non-OK: " + res.status);
+      }
+    } catch (e) {
+      setStatus("Не удалось подключиться: " + e.message, false);
+      log("Ping failed: " + e.message, "error");
+    }
+  }
+
+  async function topUpBalance() {
+    const token = getToken();
+    if (!token) { alert("Сначала выполните вход"); return; }
+
+    const amountStr = $("topupAmount").value.trim();
+    const init = { method: "POST", headers: { "Authorization": "Bearer " + token } };
+
+    if (amountStr !== "") {
+      const amount = parseInt(amountStr, 10);
+      if (!Number.isFinite(amount) || amount <= 0) {
+        alert("Введите корректную сумму (> 0)");
+        return;
+      }
+      init.headers["Content-Type"] = "application/json";
+      init.body = JSON.stringify({ amount_cents: amount });
+    }
+
+    $("topupOut").textContent = "";
+    try {
+      const res = await fetch(apiBase() + "/topup", init);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      const balance = data.balance_cents ?? data.balance_credits ?? "(unknown)";
+      $("topupOut").innerHTML = `<span class="success">OK</span> Новый баланс: <b>${balance}</b>`;
+      log(`TopUp OK → balance=${balance}`, "ok");
+
+      try { await fetchMe(); } catch (e) {}
+      try { await fetchTransactions(); } catch (e) {}
+    } catch (e) {
+      $("topupOut").innerHTML = `<span class="error">${e.message}</span>`;
+      log("TopUp failed: " + e.message, "error");
+    }
+  }
+
+  async function updatePlan() {
+    const token = getToken();
+    if (!token) { alert("Сначала выполните вход"); return; }
+    const plan = $("planSelect").value;
+    $("planOut").textContent = "";
+    try {
+      const res = await fetch(apiBase() + "/plan", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ plan })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      $("planOut").innerHTML = `<span class="success">OK</span> Новый план: <b>${data.plan}</b>, баланс: ${data.balance_credits}`;
+      log(`Plan updated to ${data.plan}`, "ok");
+      try { await fetchMe(); } catch (e) {}
+    } catch (e) {
+      $("planOut").innerHTML = `<span class="error">${e.message}</span>`;
+      log("Plan update failed: " + e.message, "error");
+    }
+  }
+
+  function sexToNumeric(val) {
+    return String(val).toLowerCase() === "male" ? 1 : 0; // female -> 0, male -> 1
+  }
+
+  async function doPredict() {
+    const token = getToken();
+    if (!token) { alert("Сначала выполните вход"); return; }
+
+    const sexStr = $("predSex").value;
+    const ageStr = $("predAge").value;
+    const sexNum = sexToNumeric(sexStr);
+    const age = parseFloat(ageStr);
+
+    if (Number.isNaN(age) || age < 0) {
+      alert("Укажите корректный возраст");
+      return;
+    }
+
+    const features = [sexNum, age]; // [Sex, Age]
+    $("sentFeatures").textContent = JSON.stringify(features);
+
+    try {
+      const res = await fetch(apiBase() + "/predict", {
+        method: "POST",
+        headers: {
+          "Authorization": "Bearer " + token,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ features })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+
+      $("predOut").textContent =
+        `шансы выжить: ${JSON.stringify((data.result * 100.0).toFixed(2))}%\n` +
+        `charged_credits: ${data.charged_credits}\n` +
+        `balance_credits: ${data.balance_credits}\n` +
+        `plan: ${data.plan}`;
+      log("POST /predict OK: charged=" + data.charged_credits + ", balance=" + data.balance_credits, "ok");
+
+      try { await fetchMe(); } catch (e) {}
+      try { await fetchTransactions(); } catch (e) {}
+    } catch (e) {
+      $("predOut").textContent = "";
+      log("POST /predict failed: " + e.message, "error");
+      alert("Ошибка предсказания: " + e.message);
+    }
+  }
+
+  function renderTxTable(items) {
+    const tbody = $("txTableBody");
+    tbody.innerHTML = "";
+    if (!items || items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="muted">Нет данных</td></tr>`;
+      return;
+    }
+    for (const tx of items) {
+      const tr = document.createElement("tr");
+      const tdCreated = document.createElement("td"); tdCreated.textContent = tx.created_at;
+      const tdType = document.createElement("td"); tdType.textContent = tx.type;
+      const tdAmount = document.createElement("td"); tdAmount.textContent = tx.amount_cents;
+      const tdAfter = document.createElement("td"); tdAfter.textContent = tx.balance_after;
+      const tdMeta = document.createElement("td"); tdMeta.textContent = tx.metadata ? JSON.stringify(tx.metadata) : "—";
+      tr.append(tdCreated, tdType, tdAmount, tdAfter, tdMeta);
+      tbody.appendChild(tr);
+    }
+  }
+
+  async function fetchTransactions() {
+    const token = getToken();
+    if (!token) { alert("Сначала выполните вход"); return; }
+    const limit = parseInt($("txLimit").value, 10) || 50;
+    const offset = parseInt($("txOffset").value, 10) || 0;
+    try {
+      const res = await fetch(apiBase() + `/transactions?limit=${encodeURIComponent(limit)}&offset=${encodeURIComponent(offset)}`, {
+        headers: { "Authorization": "Bearer " + token }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.detail || res.statusText);
+      renderTxTable(data);
+      log(`Fetched ${data.length} transactions`, "ok");
+    } catch (e) {
+      log("GET /transactions failed: " + e.message, "error");
+      alert("Ошибка загрузки истории: " + e.message);
+    }
+  }
+
+  // ===== Safe binding =====
+  function bind(id, event, handler) {
+    const el = document.getElementById(id);
+    if (!el) { console.warn(`Element #${id} not found`); return; }
+    el.addEventListener(event, handler);
+  }
+  window.addEventListener("DOMContentLoaded", () => {
+    bind("registerBtn", "click", registerUser);
+    bind("loginBtn", "click", loginUser);
+    bind("logoutBtn", "click", () => { setToken(""); log("Logged out"); });
+    bind("meBtn", "click", fetchMe);
+    bind("pingBtn", "click", ping);
+    bind("apiBase", "change", ping);
+    bind("predictBtn", "click", doPredict);
+    bind("topupBtn", "click", topUpBalance);
+    bind("planBtn", "click", updatePlan);
+    bind("txBtn", "click", fetchTransactions);
+
+    renderToken();
+    setTimeout(ping, 200);
+  });
+</script>
+</body>
+</html>
