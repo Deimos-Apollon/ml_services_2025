@@ -325,3 +325,7 @@ curl "http://localhost:8000/transactions?limit=50&offset=0" \
 
 
 ## Демо пользовательского интерфейса
+
+<video width="600" height="600" controls>
+  <source src="media/demo.mp4" type="video/mp4">
+</video>
