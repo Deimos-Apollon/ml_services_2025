@@ -1,4 +1,6 @@
 
+https://github.com/user-attachments/assets/d9c3895d-5101-4d1b-9582-d9eef6a1a561
+
 # Описание проекта
 Данный проект предоставляет ML-сервис с подсистемой биллинга, который осуществляет предсказания на основе ML-моделей и списывает кредиты с личного счета пользователя за успешное выполнение предсказания. 
 
@@ -228,6 +230,7 @@ Response:
 Пример:
 ```bash
 curl -X POST http://localhost:8000/predict \
+Аутентификация: 
   -H "Authorization: Bearer <JWT>" \
   -H "Content-Type: application/json" \
   -d '{"features":[1,35]}'
@@ -278,7 +281,7 @@ curl -X POST http://localhost:8000/topup \
 ```
 
 4) (Опционально) смените тариф:
-```bash
+```bashй
 curl -X POST http://localhost:8000/plan \
   -H "Authorization: Bearer <JWT>" \
   -H "Content-Type: application/json" \
@@ -326,6 +329,7 @@ curl "http://localhost:8000/transactions?limit=50&offset=0" \
 
 ## Демо пользовательского интерфейса
 
-<video width="600" height="600" controls>
-  <source src="media/demo.mp4" type="video/mp4">
-</video>
+
+https://github.com/user-attachments/assets/c10ac7a1-5351-44de-8b90-866b5bbe67cc
+
+
